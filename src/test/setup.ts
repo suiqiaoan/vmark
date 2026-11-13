@@ -78,7 +78,6 @@ vi.mock("@/i18n", () => {
     resolveKey(key, ["common"], opts);
 
   // A REAL listener registry, not two no-op arrows.
-  //
   // `on`/`off` used to discard their arguments, which made three things
   // untestable through the global mock: that a node view subscribes to
   // `languageChanged` at all, that it re-renders when the language changes,
@@ -90,6 +89,7 @@ vi.mock("@/i18n", () => {
   const singleton = {
     t,
     language: "en",
+    loadNamespaces: () => Promise.resolve(t),
     on(event: string, cb: (...args: unknown[]) => void) {
       if (!listeners.has(event)) listeners.set(event, new Set());
       listeners.get(event)!.add(cb);

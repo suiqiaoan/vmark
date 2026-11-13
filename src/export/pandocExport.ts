@@ -6,6 +6,7 @@
  *
  * Pipeline: menu:export-pandoc-{fmt} → detect_pandoc → pick_export_target
  *   (Rust's save panel, which records the answer) → export_via_pandoc
+ *   → top-right success toast with an action to reveal the exported file
  *
  * @coordinates-with services/commands/exportCommands.ts — the export.pandoc* commands call this on menu:export-pandoc-{fmt}
  * @coordinates-with pandoc/commands.rs — Rust backend for Pandoc execution
@@ -15,9 +16,11 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
-import { joinPath } from "@/utils/pathUtils";
+import { joinPath, revealInFileManagerKey } from "@/utils/pathUtils";
+import { revealFailedKey } from "@/utils/revealFailedKey";
 import { exportError } from "@/utils/debug";
 import type { PandocFormatKey } from "./pandocFormats";
 
@@ -44,6 +47,7 @@ const FORMAT_META: Record<PandocFormatKey, { name: string; ext: string }> = {
  * 1. Checks if Pandoc is installed.
  * 2. Asks Rust to show the save panel for the chosen format.
  * 3. Invokes the Rust command to pipe markdown through Pandoc.
+ * 4. Offers to reveal the exported file in the platform's file manager.
  */
 export async function exportViaPandoc(options: {
   markdown: string;
@@ -93,13 +97,28 @@ export async function exportViaPandoc(options: {
 
     if (!selectedPath) return false;
 
+    // This service can run before any sidebar has loaded its action labels.
+    await i18n.loadNamespaces("sidebar");
+
     await invoke("export_via_pandoc", {
       markdown,
       outputPath: selectedPath,
       sourceDir: sourceDirectory ?? null,
     });
 
-    toast.success(i18n.t("dialog:toast.pandocExportSuccess"));
+    toast.success(i18n.t("dialog:toast.pandocExportSuccess"), {
+      position: "top-right",
+      duration: 10000,
+      action: {
+        label: i18n.t(revealInFileManagerKey()),
+        onClick: () => {
+          void revealItemInDir(selectedPath).catch((error: unknown) => {
+            exportError("Failed to reveal Pandoc export:", error);
+            toast.errorDetail(i18n.t(revealFailedKey()), error);
+          });
+        },
+      },
+    });
     return true;
   } catch (error) {
     exportError("Pandoc export failed:", error);
