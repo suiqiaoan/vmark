@@ -23,10 +23,6 @@ vi.mock("sonner", () => ({
   toast: mockToast,
 }));
 
-vi.mock("@/utils/pathUtils", () => ({
-  joinPath: (...parts: string[]) => parts.join("/"),
-}));
-
 import { exportViaPandoc } from "./pandocExport";
 import { PANDOC_FORMAT_KEYS } from "./pandocFormats";
 
@@ -120,7 +116,13 @@ describe("exportViaPandoc", () => {
       outputPath: "/tmp/output.docx",
       sourceDir: null,
     });
-    expect(mockToast.success).toHaveBeenCalledWith("Exported successfully");
+    expect(mockToast.success).toHaveBeenCalledWith(
+      "Exported successfully",
+      expect.objectContaining({
+        position: "top-right",
+        action: expect.objectContaining({ onClick: expect.any(Function) }),
+      }),
+    );
   });
 
   it("uses correct extension for each format", async () => {
